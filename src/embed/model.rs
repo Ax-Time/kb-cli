@@ -8,9 +8,9 @@ const MODEL_URL: &str = "https://huggingface.co/optimum/all-MiniLM-L6-v2/resolve
 const TOKENIZER_URL: &str =
     "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json";
 
-const MODEL_SHA256: &str = "placeholder_update_with_real_checksum";
+const MODEL_SHA256: &str = "4a64cee3d4134bbdc86eed96e1a660efec58975417204ecfcf134140edb6e0e2";
 
-const TOKENIZER_SHA256: &str = "placeholder_update_with_real_checksum";
+const TOKENIZER_SHA256: &str = "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037";
 
 pub fn model_path(models_dir: &Path) -> PathBuf {
     models_dir.join("all-MiniLM-L6-v2")

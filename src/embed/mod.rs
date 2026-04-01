@@ -60,13 +60,17 @@ impl Embedder {
             .iter()
             .map(|x| *x as i64)
             .collect();
+        let token_type_ids: Vec<i64> = vec![0; input_ids.len()];
 
         let input_ids_shape = vec![1, input_ids.len()];
         let attention_mask_shape = vec![1, attention_mask.len()];
+        let token_type_ids_shape = vec![1, input_ids.len()];
 
         let input_ids_tensor = Tensor::from_array((input_ids_shape, input_ids))
             .map_err(|e| KbError::EmbeddingErrorOrt(e.to_string()))?;
         let attention_mask_tensor = Tensor::from_array((attention_mask_shape, attention_mask))
+            .map_err(|e| KbError::EmbeddingErrorOrt(e.to_string()))?;
+        let token_type_ids_tensor = Tensor::from_array((token_type_ids_shape, token_type_ids))
             .map_err(|e| KbError::EmbeddingErrorOrt(e.to_string()))?;
 
         let outputs = self
@@ -74,6 +78,7 @@ impl Embedder {
             .run(ort::inputs![
                 "input_ids" => input_ids_tensor,
                 "attention_mask" => attention_mask_tensor,
+                "token_type_ids" => token_type_ids_tensor,
             ])
             .map_err(|e| KbError::EmbeddingErrorOrt(e.to_string()))?;
 
