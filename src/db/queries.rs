@@ -10,6 +10,27 @@ pub struct SearchResult {
     pub score: f64,
 }
 
+pub struct Entry {
+    pub id: i64,
+    pub source: String,
+    pub created_at: String,
+}
+
+pub fn list_entries(conn: &Connection) -> Result<Vec<Entry>> {
+    let mut stmt = conn.prepare("SELECT id, source, created_at FROM entries ORDER BY id")?;
+    let entries = stmt
+        .query_map([], |row| {
+            Ok(Entry {
+                id: row.get(0)?,
+                source: row.get(1)?,
+                created_at: row.get(2)?,
+            })
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(entries)
+}
+
 pub fn insert_entry(
     conn: &Connection,
     source: &str,

@@ -43,28 +43,43 @@ enum Commands {
     Delete {
         id: i64,
     },
+    List,
+    Where,
 }
 
 fn run() -> Result<()> {
     let cli = Cli::parse();
     let kb_dir = resolve_kb_path(cli.local, cli.global)?;
 
-    let models = models_dir(&kb_dir);
-    let model_dir = download_model(&models)?;
-    let mut embedder = Embedder::new(&model_dir)?;
-
-    let db = db_path(&kb_dir);
-    let conn = open_db(&db)?;
-
     match cli.command {
-        Commands::Add { input, recursive } => {
-            commands::add::add(&conn, &mut embedder, &input, recursive)?;
+        Commands::Where => {
+            println!("{}", kb_dir.display());
         }
-        Commands::Search { query, limit } => {
-            commands::search::search(&conn, &mut embedder, &query, limit)?;
+        Commands::List => {
+            let db = db_path(&kb_dir);
+            let conn = open_db(&db)?;
+            commands::list::list(&conn)?;
         }
-        Commands::Delete { id } => {
-            commands::delete::delete(&conn, id)?;
+        _ => {
+            let models = models_dir(&kb_dir);
+            let model_dir = download_model(&models)?;
+            let mut embedder = Embedder::new(&model_dir)?;
+
+            let db = db_path(&kb_dir);
+            let conn = open_db(&db)?;
+
+            match cli.command {
+                Commands::Add { input, recursive } => {
+                    commands::add::add(&conn, &mut embedder, &input, recursive)?;
+                }
+                Commands::Search { query, limit } => {
+                    commands::search::search(&conn, &mut embedder, &query, limit)?;
+                }
+                Commands::Delete { id } => {
+                    commands::delete::delete(&conn, id)?;
+                }
+                _ => unreachable!(),
+            }
         }
     }
 
