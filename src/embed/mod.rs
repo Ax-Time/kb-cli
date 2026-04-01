@@ -6,7 +6,7 @@ use crate::error::{KbError, Result};
 
 mod model;
 
-pub use model::{download_model, model_path};
+pub use model::download_model;
 
 pub const EMBEDDING_DIM: usize = 384;
 

@@ -57,7 +57,7 @@ impl ContentSource for FileSource {
             )
         })?;
 
-        let content = String::from_utf8(bytes.clone())
+        let _content = String::from_utf8(bytes.clone())
             .or_else(|_err: std::string::FromUtf8Error| {
                 Ok(bytes.iter().map(|&b| b as char).collect::<String>())
             })

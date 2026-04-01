@@ -1,4 +1,4 @@
-use crate::error::{KbError, Result};
+use crate::error::Result;
 
 mod file;
 mod text;
