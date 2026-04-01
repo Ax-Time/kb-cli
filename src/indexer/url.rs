@@ -13,6 +13,22 @@ impl UrlSource {
     }
 }
 
+fn extract_text_from_html(html: &str) -> String {
+    let re = regex::Regex::new(r"(?si)<script[^>]*>.*?</script>|<style[^>]*>.*?</style>").unwrap();
+    let text = re.replace_all(html, " ");
+    let re_tags = regex::Regex::new(r"<[^>]+>").unwrap();
+    let text = re_tags.replace_all(&text, " ");
+    let text = text
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'");
+    let re_spaces = regex::Regex::new(r"\s+").unwrap();
+    re_spaces.replace_all(&text, " ").trim().to_string()
+}
+
 impl ContentSource for UrlSource {
     fn extract(&self) -> Result<String> {
         let client = reqwest::blocking::Client::builder()
@@ -36,19 +52,16 @@ impl ContentSource for UrlSource {
             .text()
             .map_err(|e| KbError::HttpError(e.to_string()))?;
 
-        let mut readability =
-            dom_smoothie::Readability::new(html, Some(&self.url), None).map_err(|e| {
-                KbError::IndexingFailed(
-                    self.url.clone(),
-                    format!("readability init error: {:?}", e),
-                )
-            })?;
+        let text = extract_text_from_html(&html);
 
-        let article = readability.parse().map_err(|e| {
-            KbError::IndexingFailed(self.url.clone(), format!("extraction error: {:?}", e))
-        })?;
+        if text.trim().is_empty() {
+            return Err(KbError::IndexingFailed(
+                self.url.clone(),
+                "no text content extracted".to_string(),
+            ));
+        }
 
-        Ok(article.text_content.to_string())
+        Ok(text)
     }
 
     fn source_id(&self) -> String {
