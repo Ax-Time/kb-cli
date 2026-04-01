@@ -1,5 +1,6 @@
 use ort::session::{builder::GraphOptimizationLevel, Session};
 use ort::value::Tensor;
+use std::sync::Mutex;
 use tokenizers::Tokenizer;
 
 use crate::error::{KbError, Result};
@@ -11,9 +12,12 @@ pub use model::download_model;
 pub const EMBEDDING_DIM: usize = 384;
 
 pub struct Embedder {
-    session: Session,
-    tokenizer: Tokenizer,
+    session: Mutex<Session>,
+    tokenizer: Mutex<Tokenizer>,
 }
+
+unsafe impl Send for Embedder {}
+unsafe impl Sync for Embedder {}
 
 impl Embedder {
     pub fn new(model_dir: &std::path::Path) -> Result<Self> {
@@ -45,12 +49,17 @@ impl Embedder {
         let tokenizer = Tokenizer::from_file(&tokenizer_file)
             .map_err(|e| KbError::EmbeddingError(format!("failed to load tokenizer: {}", e)))?;
 
-        Ok(Self { session, tokenizer })
+        Ok(Self {
+            session: Mutex::new(session),
+            tokenizer: Mutex::new(tokenizer),
+        })
     }
 
-    pub fn embed(&mut self, text: &str) -> Result<Vec<f32>> {
+    pub fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let encoding = self
             .tokenizer
+            .lock()
+            .unwrap()
             .encode(text, true)
             .map_err(|e| KbError::EmbeddingError(format!("tokenization failed: {}", e)))?;
 
@@ -73,39 +82,45 @@ impl Embedder {
         let token_type_ids_tensor = Tensor::from_array((token_type_ids_shape, token_type_ids))
             .map_err(|e| KbError::EmbeddingErrorOrt(e.to_string()))?;
 
-        let outputs = self
-            .session
-            .run(ort::inputs![
-                "input_ids" => input_ids_tensor,
-                "attention_mask" => attention_mask_tensor,
-                "token_type_ids" => token_type_ids_tensor,
-            ])
-            .map_err(|e| KbError::EmbeddingErrorOrt(e.to_string()))?;
+        let last_hidden_state = {
+            let mut session = self.session.lock().unwrap();
+            let outputs = session
+                .run(ort::inputs![
+                    "input_ids" => input_ids_tensor,
+                    "attention_mask" => attention_mask_tensor,
+                    "token_type_ids" => token_type_ids_tensor,
+                ])
+                .map_err(|e| KbError::EmbeddingErrorOrt(e.to_string()))?;
 
-        let last_hidden_state = &outputs["last_hidden_state"];
-        let (dims, embedding_data) = last_hidden_state
-            .try_extract_tensor::<f32>()
-            .map_err(|e| KbError::EmbeddingError(format!("failed to extract output: {}", e)))?;
-        if dims.len() != 3 {
-            return Err(KbError::EmbeddingError(format!(
-                "expected 3D output, got {}D",
-                dims.len()
-            )));
-        }
-        if dims[2] as usize != EMBEDDING_DIM {
-            return Err(KbError::EmbeddingError(format!(
-                "expected embedding dim {}, got {}",
-                EMBEDDING_DIM, dims[2]
-            )));
-        }
+            let last_hidden_state = &outputs["last_hidden_state"];
+            let (dims, embedding_data) = last_hidden_state
+                .try_extract_tensor::<f32>()
+                .map_err(|e| KbError::EmbeddingError(format!("failed to extract output: {}", e)))?;
+            if dims.len() != 3 {
+                return Err(KbError::EmbeddingError(format!(
+                    "expected 3D output, got {}D",
+                    dims.len()
+                )));
+            }
+            if dims[2] as usize != EMBEDDING_DIM {
+                return Err(KbError::EmbeddingError(format!(
+                    "expected embedding dim {}, got {}",
+                    EMBEDDING_DIM, dims[2]
+                )));
+            }
 
-        let embedding: Vec<f32> = embedding_data.iter().take(EMBEDDING_DIM).copied().collect();
+            embedding_data
+                .iter()
+                .take(EMBEDDING_DIM)
+                .copied()
+                .collect::<Vec<f32>>()
+        };
 
-        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let norm: f32 = last_hidden_state.iter().map(|x| x * x).sum::<f32>().sqrt();
         let embedding: Vec<f32> = if norm > 0.0 {
-            embedding.iter().map(|x| x / norm).collect()
+            last_hidden_state.iter().map(|x| x / norm).collect()
         } else {
-            embedding
+            last_hidden_state
         };
 
         Ok(embedding)
