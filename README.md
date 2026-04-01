@@ -17,6 +17,12 @@ kb search "Rust" --limit 5
 
 # Delete
 kb delete 42
+
+# List indexed entries
+kb list
+
+# Show KB location
+kb where
 ```
 
 ## KB Location
