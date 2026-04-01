@@ -1,0 +1,23 @@
+[package]
+name = "kb"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+rusqlite = { version = "0.39", features = ["bundled"] }
+ort = "=2.0.0-rc.12"
+tokenizers = { version = "0.22", features = ["http", "hf-hub"] }
+reqwest = { version = "0.12", features = ["blocking", "rustls-tls"], default-features = false }
+dom_smoothie = "0.1"
+walkdir = "2"
+ignore = "0.4"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+home = "0.5"
+
+[dev-dependencies]
+mockito = "1"
+tempfile = "3"
